@@ -1,3 +1,7 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.Scanner;
 
 class Parser {
@@ -51,6 +55,15 @@ public class Terminal {
                         cd(arguments);
                         break;
 
+                    case "touch":
+                        touch(arguments);
+                        break;
+
+                    case "cat":
+                        cat(arguments);
+                        break;
+
+
                     default:
                         System.out.println("Invalid command!");
                         break;
@@ -70,4 +83,61 @@ public class Terminal {
     public static void cd(String[] args) {
 
     }
-}
+
+    public static void touch(String[] args) {
+        if (args.length == 0) {
+            System.out.println("Error: touch needs at least one argument.");
+            return;
+        } else if (args.length != 1) {
+            System.out.println("Error: touch takes only one argument.");
+            return;
+        }
+
+        File file = new File(args[0]);
+        if (!file.isAbsolute()) {
+            file = new File(currentPath, args[0]);
+        }
+
+        try {
+            if (file.createNewFile()) {
+                System.out.println("The File : \"" + file.getName() + "\" has been created successfully.");
+            } else {
+                System.out.println("File already exists.");
+            }
+        } catch (IOException e) {
+            System.out.println("Error: Unable to create file.");
+        }
+
+    }
+        public static void cat(String[] args) {
+            if (args.length == 0 || args.length > 2) {
+                System.out.println("Error: cat takes 1 or 2 arguments only.");
+                return;
+            }
+
+            for (String fileName : args) {
+                File file = new File(fileName);
+                if (!file.isAbsolute()) {
+                    file = new File(currentPath, fileName);
+                }
+
+                if (!file.exists()) {
+                    System.out.println("Error: File not found - \"" + fileName + "\"");
+                    return;
+                }
+
+                try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println(line);
+                    }
+                } catch (IOException e) {
+                    System.out.println("Error: Cannot read file - " + fileName);
+                }
+            }
+        }
+
+
+
+    }
+
