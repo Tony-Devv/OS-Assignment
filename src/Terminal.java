@@ -62,6 +62,9 @@ public class Terminal {
                             ls();
                         }
                         break;
+                    case "cp":
+                        cp(arguments);
+                        break;
                     case "touch":
                         touch(arguments);
                         break;
@@ -149,6 +152,39 @@ public class Terminal {
             } else {
                 System.out.println("File: " + file.getName());
             }
+        }
+    }
+    public static void cp(String[] args) {
+        if (args.length != 2) {
+            System.out.println("Error: cp takes exactly 2 arguments (sourceFile, destFile).");
+            return;
+        }
+        File source = new File(args[0]);
+        File dest = new File(args[1]);
+        if (!source.isAbsolute()) {
+            source = new File(currentPath, args[0]);
+        }
+        if (!dest.isAbsolute()){
+            dest = new File(currentPath, args[1]);
+        }
+        if (!source.exists()) {
+            System.out.println("Error: Source file does not exist.");
+            return;
+        }
+        if (source.isDirectory()) {
+            System.out.println("Error: Source is a directory. Use 'cp -r' for directories.");
+            return;
+        }
+        try (InputStream in = new FileInputStream(source);
+             OutputStream out = new FileOutputStream(dest , true)) {
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = in.read(buffer)) > 0) {
+                out.write(buffer, 0, length);
+            }
+            System.out.println("File copied successfully.");
+        } catch (IOException e) {
+            System.out.println("Error copying file: " + e.getMessage());
         }
     }
 
