@@ -1,6 +1,7 @@
 import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipInputStream;
@@ -54,6 +55,13 @@ public class Terminal {
                     case "cd":
                         cd(arguments);
                         break;
+                    case "ls":
+                        if (arguments.length > 0) {
+                            System.out.println("Error: 'ls' takes no arguments.");
+                        } else {
+                            ls();
+                        }
+                        break;
                     case "touch":
                         touch(arguments);
                         break;
@@ -95,7 +103,55 @@ public class Terminal {
     }
 
     public static void cd(String[] args) {
+        if (args.length == 0) {
+            currentPath = System.getProperty("user.home");
+            return;
+        }
+        if (args.length > 1) {
+            System.out.println("Error: cd takes no argument or 1 argument only.");
+            return;
+        }
+        if (args[0].equals("..")) {
+            File parent = new File(currentPath).getParentFile();
+            if (parent != null) {
+                currentPath = parent.getAbsolutePath();
+            } else {
+                System.out.println("Error: Already at root directory.");
+            }
+            return;
+        }
+        File newDir = new File(args[0]);
+        if (!newDir.isAbsolute()) {
+            newDir = new File(currentPath, args[0]);
+        }
+        if (!newDir.exists() || !newDir.isDirectory()) {
+            System.out.println("Error: Directory does not exist or is not a directory.");
+            return;
+        }
+        currentPath = newDir.getAbsolutePath();
     }
+
+    public static void ls() {
+        File f = new File(System.getProperty("user.dir"));
+        if (!f.exists()) {
+            System.out.println("This directory does not exist.");
+            return;
+        }
+        File[] files = f.listFiles();
+        if (files == null) {
+            System.out.println("Unable to list files in this directory.");
+            return;
+        }
+        Arrays.sort(files);
+        for (File file : files) {
+            if (file.isDirectory()) {
+                System.out.println("Directory: " + file.getName());
+            } else {
+                System.out.println("File: " + file.getName());
+            }
+        }
+    }
+
 
     public static void touch(String[] args) {
         if (args.length == 0) {
