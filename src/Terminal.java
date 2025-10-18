@@ -10,14 +10,45 @@ import java.util.zip.ZipEntry;
 class Parser {
     private String commandName;
     private String[] args;
+    private String redirectFile;
+    private boolean append;
 
-    public void parse(String input) {
-        String[] commandLine = input.trim().split("\\s+");
-        commandName = commandLine[0];
-        args = new String[commandLine.length - 1];
-        for (int i = 1; i < commandLine.length; i++) {
-            args[i - 1] = commandLine[i];
+
+    public boolean parse(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return false;
         }
+        String[] parts = input.trim().split("\\s+");
+        if (parts.length == 0) {
+            return false;
+        }
+
+        int redirectIndex = -1;
+        for (int i = 1; i < parts.length; i++) {
+            if (parts[i].equals(">") || parts[i].equals(">>")) {
+                if (redirectIndex != -1) {
+                    return false;
+                }
+                redirectIndex = i;
+                append = parts[i].equals(">>");
+            }
+        }
+
+        if (redirectIndex != -1) {
+            if (redirectIndex != parts.length - 2) {
+                return false;
+            }
+            commandName = parts[0];
+            args = new String[redirectIndex - 1];
+            System.arraycopy(parts, 1, args, 0, args.length);
+            redirectFile = parts[redirectIndex + 1];
+        } else {
+            commandName = parts[0];
+            args = new String[parts.length - 1];
+            System.arraycopy(parts, 1, args, 0, args.length);
+            redirectFile = null;
+        }
+        return true;
     }
 
     public String getCommandName() {
@@ -26,6 +57,12 @@ class Parser {
 
     public String[] getArgs() {
         return args;
+    }
+    public String getRedirectFile() {
+        return redirectFile;
+    }
+    public boolean isAppend() {
+        return append;
     }
 }
 
@@ -43,9 +80,37 @@ public class Terminal {
 
             if (input.equals("exit")) break;
 
-            parser.parse(input);
+            if (!parser.parse(input)) {
+                System.out.println("Invalid command syntax!");
+                continue;
+            }
             String command = parser.getCommandName();
             String[] arguments = parser.getArgs();
+            String redirectFileName = parser.getRedirectFile();
+            boolean append = parser.isAppend();
+
+            PrintStream originalOut = System.out;
+            PrintStream fileOut = null;
+
+            if (redirectFileName != null) {
+                if(append){
+                    System.out.println("Output appended to " + redirectFileName);
+                }
+                else{
+                    System.out.println("Output redirecting to " + redirectFileName);
+                }
+                File redirectFile = new File(redirectFileName);
+                if (!redirectFile.isAbsolute()) {
+                    redirectFile = new File(currentPath, redirectFileName);
+                }
+                try {
+                    fileOut = new PrintStream(new FileOutputStream(redirectFile, append));
+                    System.setOut(fileOut);
+                } catch (IOException e) {
+                    System.out.println("Error opening file for redirection: " + e.getMessage());
+                    continue;
+                }
+            }
 
             try {
                 switch (command) {
@@ -89,12 +154,25 @@ public class Terminal {
                     case "unzip":
                         unzip(arguments);
                         break;
+                    case "wc":
+                        wc(arguments);
+                        break;
+                    case "echo":
+                        echo(arguments);
+                        break;
                     default:
                         System.out.println("Invalid command!");
                         break;
                 }
             } catch (Exception e) {
                 System.out.println("Error executing command: " + e.getMessage());
+            } finally {
+                if (redirectFileName != null) {
+                    if (fileOut != null) {
+                        fileOut.close();
+                    }
+                    System.setOut(originalOut);
+                }
             }
         }
 
@@ -492,5 +570,45 @@ public class Terminal {
             System.out.println("Error while extracting the Zip: " + e.getMessage());
         };
     }
+    public static void wc(String[] args){
+        if(args.length != 1){
+            System.out.println("Error: You must specify exactly one file.");
+            return;
+        }
+        File file = new File(args[0]);
+        if(!file.isAbsolute()){
+            file = new File(currentPath, args[0]);
+        }
+        if(!file.exists() || !file.isFile()){
+            System.out.println("Error: File not found or is a directory - \"" + file.getPath() + "\"");
+            return;
+        }
+        int no_lines = 0;
+        int no_words = 0;
+        int no_characters = 0;
+        try(BufferedReader reader = new BufferedReader(new FileReader(file))){
+            String line;
+            while((line = reader.readLine()) != null){
+                no_lines++;
+                //  Count words if the line is not empty or whitespace
+                if(!line.trim().isEmpty()){
+                    no_words += line.split("\\s+").length;
+                }
+                // Count characters including whitespace and newlines
+                no_characters += line.length() + 1;
+            }
+            System.out.println(no_lines + " " + no_words + " " + no_characters + " " + file.getName());
+        }catch (IOException e){
+            System.out.println("Error: Unable to read file - \"" + file.getPath() + "\"");
+        }
+    }
+    public static void echo(String[] args) {
+        StringBuilder sb = new StringBuilder();
+        for (String arg : args) {
+            sb.append(arg).append(" ");
+        }
+        System.out.println(sb.toString().trim());
+    }
 
 }
+
