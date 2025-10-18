@@ -176,7 +176,7 @@ public class Terminal {
             return;
         }
         try (InputStream in = new FileInputStream(source);
-             OutputStream out = new FileOutputStream(dest , true)) {
+             OutputStream out = new FileOutputStream(dest)) {
             byte[] buffer = new byte[1024];
             int length;
             while ((length = in.read(buffer)) > 0) {
