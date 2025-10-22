@@ -14,17 +14,22 @@ class Parser {
     private boolean append;
 
     public boolean parse(String input) {
+        // Check if input is null or empty
         if (input == null || input.trim().isEmpty()) {
             return false;
         }
+        // Split input into parts by whitespace
         String[] parts = input.trim().split("\\s+");
-        if (parts.length == 0) {
-            return false;
-        }
-
+        // Command name is the first part
+        commandName = parts[0];
+        // Initialize defaults
+        redirectFile = null;
+        append = false;
+        // Look for redirection symbol (">" or ">>")
         int redirectIndex = -1;
         for (int i = 1; i < parts.length; i++) {
             if (parts[i].equals(">") || parts[i].equals(">>")) {
+                // Prevent multiple redirections (invalid)
                 if (redirectIndex != -1) {
                     return false;
                 }
@@ -32,20 +37,19 @@ class Parser {
                 append = parts[i].equals(">>");
             }
         }
-
+        // If a redirect symbol is found
         if (redirectIndex != -1) {
-            if (redirectIndex != parts.length - 2) {
+            // It cannot be the last element (must have a file name after it)
+            if (redirectIndex == parts.length - 1) {
                 return false;
             }
-            commandName = parts[0];
-            args = new String[redirectIndex - 1];
-            System.arraycopy(parts, 1, args, 0, args.length);
+            // Copy the args before the redirect symbol
+            args = Arrays.copyOfRange(parts, 1, redirectIndex);
+            // Set the file name after the redirect symbol
             redirectFile = parts[redirectIndex + 1];
         } else {
-            commandName = parts[0];
-            args = new String[parts.length - 1];
-            System.arraycopy(parts, 1, args, 0, args.length);
-            redirectFile = null;
+            // No redirection: copy all parts after the command as args
+            args = Arrays.copyOfRange(parts, 1, parts.length);
         }
         return true;
     }
@@ -104,30 +108,28 @@ public class Terminal {
         PrintStream fileOut = null;
 
         if (redirectFileName != null) {
-            if (append) {
-
-                System.out.println("Output appended to " + redirectFileName);
-            }
-
-            else {
-                System.out.println("Output redirecting to " + redirectFileName);
-            }
-
-            File redirectFile = new File(redirectFileName);
-
-            if (!redirectFile.isAbsolute()) {
-                redirectFile = new File(currentPath, redirectFileName);
-            }
-
             try {
-
+                // Print message before redirecting output (so it appears on console, not in file)
+                if (append) {
+                    System.out.println("Output will be appended to " + redirectFileName);
+                } else {
+                    System.out.println("Output will be redirected to " + redirectFileName);
+                }
+                // Prepare the target file for output
+                File redirectFile = new File(redirectFileName);
+                // If path is relative, make it relative to currentPath
+                if (!redirectFile.isAbsolute()) {
+                    redirectFile = new File(currentPath, redirectFileName);
+                }
+                // Create PrintStream for redirection (append or overwrite mode)
                 fileOut = new PrintStream(new FileOutputStream(redirectFile, append));
+                // Redirect System.out to the chosen file
                 System.setOut(fileOut);
             }
-
             catch (IOException e) {
-                System.out.println("Error opening file for redirection: " + e.getMessage());
-                return;
+                // If file cannot be created or opened
+                System.out.println("Error: Cannot open file for redirection → " + e.getMessage());
+                return; // Skip executing command
             }
         }
 
@@ -183,10 +185,13 @@ public class Terminal {
         } catch (Exception e) {
             System.out.println("Error executing command: " + e.getMessage());
         } finally {
+            // Restore original System.out if redirection was used
             if (redirectFileName != null) {
                 if (fileOut != null) {
+                    // Close the file output stream
                     fileOut.close();
                 }
+                // Restore original System.out
                 System.setOut(originalOut);
             }
         }
@@ -585,42 +590,56 @@ public class Terminal {
         }
     }
 
-    public void wc(String[] args) {
+    // Word Count Function
+    public  void wc(String[] args) {
+        // Check if exactly one file is specified
         if (args.length != 1) {
             System.out.println("Error: You must specify exactly one file.");
             return;
         }
         File file = new File(args[0]);
+        // If path is relative, make it relative to currentPath
         if (!file.isAbsolute()) {
             file = new File(currentPath, args[0]);
         }
+        // Check if file exists and is a file
         if (!file.exists() || !file.isFile()) {
             System.out.println("Error: File not found or is a directory - \"" + file.getPath() + "\"");
             return;
         }
+        // Count lines, words, and characters
         int no_lines = 0;
         int no_words = 0;
         int no_characters = 0;
+        // Read file line by line
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
+            // Count lines, words, and characters
             while ((line = reader.readLine()) != null) {
                 no_lines++;
+                // Count words if line is not empty
                 if (!line.trim().isEmpty()) {
                     no_words += line.split("\\s+").length;
                 }
+                // Count characters including newline
                 no_characters += line.length() + 1;
             }
+            // Print results
             System.out.println(no_lines + " " + no_words + " " + no_characters + " " + file.getName());
         } catch (IOException e) {
+            // Print error message
             System.out.println("Error: Unable to read file - \"" + file.getPath() + "\"");
         }
     }
 
-    public void echo(String[] args) {
-        StringBuilder sb = new StringBuilder();
-        for (String arg : args) {
-            sb.append(arg).append(" ");
+    // Echo Function prints the arguments to the console
+    public  void echo(String[] args) {
+        // If no arguments are provided, print a newline
+        if (args.length == 0){
+            System.out.println();
+            return;
         }
-        System.out.println(sb.toString().trim());
+        // Join all arguments with a space and print
+        System.out.println(String.join(" ", args));
     }
 }
