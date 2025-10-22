@@ -213,7 +213,7 @@ public class Terminal {
     }
 
     public static void ls() {
-        File f = new File(System.getProperty("user.dir"));
+        File f = new File(currentPath);
         if (!f.exists()) {
             System.out.println("This directory does not exist.");
             return;
