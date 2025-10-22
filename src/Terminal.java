@@ -68,8 +68,8 @@ class Parser {
 }
 
 public class Terminal {
-    private  String currentPath = System.getProperty("user.dir");
-    private  Parser parser = new Parser();
+    private String currentPath = System.getProperty("user.dir");
+    private Parser parser = new Parser();
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -80,14 +80,15 @@ public class Terminal {
             System.out.print(terminal.currentPath + " > ");
             String input = sc.nextLine();
 
-            if (input.equals("exit")) break;
+            if (input.equals("exit"))
+                break;
 
             if (!terminal.parser.parse(input)) {
                 System.out.println("Invalid command syntax!");
                 continue;
             }
 
-                    // Moved Command Choosing functionality from Main to it's correct Function
+            // Moved Command Choosing functionality from Main to it's correct Function
             terminal.chooseCommandAction(
                     terminal.parser.getCommandName(),
                     terminal.parser.getArgs(),
@@ -98,7 +99,7 @@ public class Terminal {
         sc.close();
     }
 
-    public  void chooseCommandAction(String command, String[] arguments, String redirectFileName, boolean append) {
+    public void chooseCommandAction(String command, String[] arguments, String redirectFileName, boolean append) {
         PrintStream originalOut = System.out;
         PrintStream fileOut = null;
 
@@ -160,9 +161,6 @@ public class Terminal {
                 case "rmdir":
                     rmdir(arguments);
                     break;
-                case "cp-r":
-                    cp_r(arguments);
-                    break;
                 case "rm":
                     rm(arguments);
                     break;
@@ -194,11 +192,11 @@ public class Terminal {
         }
     }
 
-    public  void pwd() {
+    public void pwd() {
         System.out.println(currentPath);
     }
 
-    public  void cd(String[] args) {
+    public void cd(String[] args) {
         if (args.length == 0) {
             currentPath = System.getProperty("user.home");
             return;
@@ -227,7 +225,7 @@ public class Terminal {
         currentPath = newDir.getAbsolutePath();
     }
 
-    public  void ls() {
+    public void ls() {
         File f = new File(currentPath);
         if (!f.exists()) {
             System.out.println("This directory does not exist.");
@@ -248,41 +246,7 @@ public class Terminal {
         }
     }
 
-    public  void cp(String[] args) {
-        if (args.length != 2) {
-            System.out.println("Error: cp takes exactly 2 arguments (sourceFile, destFile).");
-            return;
-        }
-        File source = new File(args[0]);
-        File dest = new File(args[1]);
-        if (!source.isAbsolute()) {
-            source = new File(currentPath, args[0]);
-        }
-        if (!dest.isAbsolute()) {
-            dest = new File(currentPath, args[1]);
-        }
-        if (!source.exists()) {
-            System.out.println("Error: Source file does not exist.");
-            return;
-        }
-        if (source.isDirectory()) {
-            System.out.println("Error: Source is a directory. Use 'cp -r' for directories.");
-            return;
-        }
-        try (InputStream in = new FileInputStream(source);
-             OutputStream out = new FileOutputStream(dest)) {
-            byte[] buffer = new byte[1024];
-            int length;
-            while ((length = in.read(buffer)) > 0) {
-                out.write(buffer, 0, length);
-            }
-            System.out.println("File copied successfully.");
-        } catch (IOException e) {
-            System.out.println("Error copying file: " + e.getMessage());
-        }
-    }
-
-    public  void touch(String[] args) {
+    public void touch(String[] args) {
         if (args.length == 0) {
             System.out.println("Error: touch needs at least one argument.");
             return;
@@ -305,7 +269,7 @@ public class Terminal {
         }
     }
 
-    public  void cat(String[] args) {
+    public void cat(String[] args) {
 
         if (args.length == 0 || args.length > 2) {
             System.out.println("Error: cat takes 1 or 2 arguments only.");
@@ -338,7 +302,7 @@ public class Terminal {
         }
     }
 
-    public  void mkdir(String[] args) {
+    public void mkdir(String[] args) {
         if (args.length == 0) {
             System.out.println("Error: mkdir needs at least one argument.");
             return;
@@ -360,7 +324,7 @@ public class Terminal {
         }
     }
 
-    public  void rmdir(String[] args) {
+    public void rmdir(String[] args) {
         if (args.length != 1) {
             System.out.println("Error: rmdir takes exactly one argument.");
             return;
@@ -403,51 +367,95 @@ public class Terminal {
         }
     }
 
-    public  void cp_r(String[] args) {
-        if (args.length != 2) {
-            System.out.println("Error: cp -r takes exactly 2 arguments (sourceDir, destDir).");
+    public void cp(String[] args) {
+        if (args.length < 2) {
+            System.out.println("Error: cp takes at least 2 arguments ([-r] source dest).");
             return;
         }
-        File source = new File(args[0]);
-        File dest = new File(args[1]);
-        if (!source.isAbsolute()) source = new File(currentPath, args[0]);
-        if (!dest.isAbsolute()) dest = new File(currentPath, args[1]);
-        if (!source.exists() || !source.isDirectory()) {
-            System.out.println("Error: Source directory does not exist or is not a directory.");
+
+        boolean recursive = false;
+        int index = 0;
+
+        if (args[0].equals("-r")) {
+            recursive = true;
+            index = 1;
+            if (args.length != 3) {
+                System.out.println("Error: cp -r takes exactly 2 arguments (sourceDir destDir).");
+                return;
+            }
+        } else if (args.length != 2) {
+            System.out.println("Error: cp takes exactly 2 arguments (sourceFile destFile).");
             return;
         }
-        File newDest = new File(dest, source.getName());
-        if (!newDest.exists()) newDest.mkdirs();
+
+        File source = new File(args[index]);
+        File dest = new File(args[index + 1]);
+
+        if (!source.isAbsolute())
+            source = new File(currentPath, args[index]);
+        if (!dest.isAbsolute())
+            dest = new File(currentPath, args[index + 1]);
+
+        if (!source.exists()) {
+            System.out.println("Error: Source does not exist.");
+            return;
+        }
+
         try {
-            copyDirectory(source, newDest);
-            System.out.println("Directory copied successfully.");
+            if (recursive) {
+                if (!source.isDirectory()) {
+                    System.out.println("Error: cp -r source must be a directory.");
+                    return;
+                }
+                File newDest = new File(dest, source.getName());
+                if (!newDest.exists())
+                    newDest.mkdirs();
+                copyDirectory(source, newDest);
+                System.out.println("Directory copied successfully.");
+            } else {
+                if (source.isDirectory()) {
+                    System.out.println("Error: Source is a directory. Use 'cp -r' for directories.");
+                    return;
+                }
+                try (InputStream in = new FileInputStream(source);
+                        OutputStream out = new FileOutputStream(dest)) {
+                    byte[] buffer = new byte[1024];
+                    int length;
+                    while ((length = in.read(buffer)) > 0) {
+                        out.write(buffer, 0, length);
+                    }
+                }
+                System.out.println("File copied successfully.");
+            }
         } catch (IOException e) {
-            System.out.println("Error copying directory: " + e.getMessage());
+            System.out.println("Error copying: " + e.getMessage());
         }
     }
 
-    private  void copyDirectory(File source, File dest) throws IOException {
-        if (source.isDirectory()) {
-            if (!dest.exists()) dest.mkdirs();
-            String[] children = source.list();
-            if (children != null) {
-                for (String child : children) {
-                    copyDirectory(new File(source, child), new File(dest, child));
-                }
-            }
-        } else {
-            try (InputStream in = new FileInputStream(source);
-                 OutputStream out = new FileOutputStream(dest)) {
-                byte[] buffer = new byte[1024];
-                int length;
-                while ((length = in.read(buffer)) > 0) {
-                    out.write(buffer, 0, length);
+    private void copyDirectory(File source, File dest) throws IOException {
+        File[] files = source.listFiles();
+        if (files == null)
+            return;
+
+        for (File file : files) {
+            File newFile = new File(dest, file.getName());
+            if (file.isDirectory()) {
+                newFile.mkdirs();
+                copyDirectory(file, newFile);
+            } else {
+                try (InputStream in = new FileInputStream(file);
+                        OutputStream out = new FileOutputStream(newFile)) {
+                    byte[] buffer = new byte[1024];
+                    int length;
+                    while ((length = in.read(buffer)) > 0) {
+                        out.write(buffer, 0, length);
+                    }
                 }
             }
         }
     }
 
-    public  void rm(String[] args) {
+    public void rm(String[] args) {
         if (args.length != 1) {
             System.out.println("Error: rm takes exactly one argument (file name).");
             return;
@@ -471,7 +479,7 @@ public class Terminal {
         }
     }
 
-    public  void zip(String[] args) {
+    public void zip(String[] args) {
         if (args.length < 2) {
             System.out.println("Error: zip [-r] should take two or more arguments (zipName file1 ...).");
             return;
@@ -494,10 +502,11 @@ public class Terminal {
             zipFile = new File(currentPath, zipFileName);
         }
         try (FileOutputStream fos = new FileOutputStream(zipFile);
-             ZipOutputStream zos = new ZipOutputStream(fos)) {
+                ZipOutputStream zos = new ZipOutputStream(fos)) {
             for (int i = startIndex + 1; i < args.length; i++) {
                 File file = new File(args[i]);
-                if (!file.isAbsolute()) file = new File(currentPath, args[i]);
+                if (!file.isAbsolute())
+                    file = new File(currentPath, args[i]);
                 if (!file.exists()) {
                     System.out.println("Warning: Skipping missing file " + file.getName());
                     continue;
@@ -511,7 +520,7 @@ public class Terminal {
         }
     }
 
-    private  void addToZip(File file, String zipEntryName, ZipOutputStream zos, boolean recursive) throws IOException {
+    private void addToZip(File file, String zipEntryName, ZipOutputStream zos, boolean recursive) throws IOException {
         if (file.isDirectory()) {
             if (recursive) {
                 File[] childFiles = file.listFiles();
@@ -531,7 +540,7 @@ public class Terminal {
         }
     }
 
-    public  void unzip(String[] args) {
+    public void unzip(String[] args) {
         if (args.length < 1) {
             System.out.println("Error: unzip archive_name.zip [-d destination_folder] .");
             return;
@@ -556,7 +565,7 @@ public class Terminal {
             }
         }
         try (FileInputStream fis = new FileInputStream(zipFile);
-             ZipInputStream zis = new ZipInputStream(fis)) {
+                ZipInputStream zis = new ZipInputStream(fis)) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 File newFile = new File(destDir, entry.getName());
@@ -576,7 +585,7 @@ public class Terminal {
         }
     }
 
-    public  void wc(String[] args) {
+    public void wc(String[] args) {
         if (args.length != 1) {
             System.out.println("Error: You must specify exactly one file.");
             return;
@@ -607,7 +616,7 @@ public class Terminal {
         }
     }
 
-    public  void echo(String[] args) {
+    public void echo(String[] args) {
         StringBuilder sb = new StringBuilder();
         for (String arg : args) {
             sb.append(arg).append(" ");
