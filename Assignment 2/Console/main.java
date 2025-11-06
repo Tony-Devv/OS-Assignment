@@ -165,66 +165,68 @@ class Car extends Thread {
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
         List<Thread> pumpThreads = new ArrayList<>();
-        try{
-            System.out.print("Enter waiting area capacity (1–10): ");
-            int waitingArea = input.nextInt();
-            if(waitingArea > 10 || waitingArea < 1){
-                System.out.println("Invalid waiting area capacity, Must be between 1 and 10");
-                return;
+        while(true)
+        {
+            try{
+                System.out.print("Enter waiting area capacity (1–10): ");
+                int waitingArea = input.nextInt();
+                if(waitingArea > 10 || waitingArea < 1){
+                    System.out.println("Invalid waiting area capacity, Must be between 1 and 10");
+                    continue;
+                }
+
+                System.out.print("Enter number of service bays (pumps): ");
+                int pumpNums = input.nextInt();
+                if (pumpNums < 1) {
+                    System.out.println("There must be at least one pump.");
+                    continue;
+                }
+
+                input.nextLine(); // So we can get the next line completely and correctly
+
+                System.out.print("Enter car IDs separated by spaces (e.g. C1 C2 C3 C4 C5): ");
+                String[] carIDs = input.nextLine().trim().split("[,\\s]+"); // Regix for Spaces and commas so it can split input by spaces or commas
+                if(carIDs.length == 0){
+                    System.out.println("You must enter at least one car ID");
+                    continue;
+                }
+                Pump.setTotalCars(carIDs.length);
+
+                input.close();
+
+                Queue<Car> waitingQueue = new LinkedList<>();
+
+                Semaphore mutex = new Semaphore(1);
+                Semaphore empty = new Semaphore(waitingArea);
+                Semaphore full = new Semaphore(0);
+                Semaphore pumps = new Semaphore(pumpNums);
+
+                for (int i = 1; i <= pumpNums; i++) {
+                    Pump pump = new Pump(i, waitingQueue, mutex, empty, full, pumps);
+                    pump.start();
+                    pumpThreads.add(pump);
+                }
+
+                for (String id : carIDs) {
+                    Car car = new Car(id, waitingQueue, mutex, empty, full);
+                    car.start();
+
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {}
+                }
+
+                // Wait for all pumps to finish
+                for (Thread pumpThread : pumpThreads) {
+                    pumpThread.join();
+                }
+
+                System.out.println("All cars processed; simulation ends.");
+                break;
+
+            } catch (Exception e) {
+                System.out.println("An error occurred during setup: " + e.getMessage());
             }
-
-            System.out.print("Enter number of service bays (pumps): ");
-            int pumpNums = input.nextInt();
-            if (pumpNums < 1) {
-                System.out.println("There must be at least one pump.");
-                return;
-            }
-
-            input.nextLine(); // So we can get the next line completely and correctly
-
-            System.out.print("Enter car IDs separated by spaces (e.g. C1 C2 C3 C4 C5): ");
-            String[] carIDs = input.nextLine().trim().split("[,\\s]+"); // Regix for Spaces and commas so it can split input by spaces or commas
-            if(carIDs.length == 0){
-                System.out.println("You must enter at least one car ID");
-                return;
-            }
-            Pump.setTotalCars(carIDs.length);
-
-
-            input.close();
-
-            Queue<Car> waitingQueue = new LinkedList<>();
-
-            Semaphore mutex = new Semaphore(1);
-            Semaphore empty = new Semaphore(waitingArea);
-            Semaphore full = new Semaphore(0);
-            Semaphore pumps = new Semaphore(pumpNums);
-
-            for (int i = 1; i <= pumpNums; i++) {
-                Pump pump = new Pump(i, waitingQueue, mutex, empty, full, pumps);
-                pump.start();
-                pumpThreads.add(pump);
-            }
-
-
-            for (String id : carIDs) {
-                Car car = new Car(id, waitingQueue, mutex, empty, full);
-                car.start();
-
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {}
-            }
-
-            // Wait for all pumps to finish
-            for (Thread pumpThread : pumpThreads) {
-                pumpThread.join();
-            }
-
-            System.out.println("All cars processed; simulation ends.");
-
-        } catch (Exception e) {
-            System.out.println("An error occurred during setup: " + e.getMessage());
         }
     }
 }
