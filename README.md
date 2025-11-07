@@ -25,12 +25,23 @@ java ServiceStation
 - Java JDK 17+
 - [JavaFX SDK 25.0.1+](https://openjfx.io/)
 
-**Run:**
+**Run via Command Line:**
 ```bash
 cd "Assignment 2/Gui_Bonus"
 javac --module-path "PATH_TO_JAVAFX/lib" --add-modules javafx.controls,javafx.fxml,javafx.graphics ServiceStationGUI.java
 java --module-path "PATH_TO_JAVAFX/lib" --add-modules javafx.controls,javafx.fxml,javafx.graphics ServiceStationGUI
 ```
+
+**Run via IntelliJ IDEA:**
+1. Open project in IntelliJ IDEA
+2. Go to `File > Project Structure > Libraries`
+3. Add JavaFX JARs from your JavaFX SDK `lib` folder
+4. Go to `Run > Edit Configurations`
+5. Add VM options:
+   ```
+   --module-path "C:\javafx-sdk-25.0.1\lib" --add-modules javafx.controls,javafx.fxml,javafx.graphics
+   ```
+6. Click `Run`
 
 ### Option 3: Portable GUI (No Setup Required)
 ```bash
@@ -51,10 +62,5 @@ cd "Assignment 2/Released Gui"
 
 ---
 
-## 📝 Team Members
-[Add your team information here]
-
----
-
-## 📅 Submission Date
+##  Submission Date
 November 7, 2025
