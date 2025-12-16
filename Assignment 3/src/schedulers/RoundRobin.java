@@ -24,7 +24,7 @@ public class RoundRobin implements Scheduler {
     }
 
     @Override
-    public SchedulerResult schedule(List<Process> processes,  int contextSwitchTime,int quantum) {
+    public SchedulerResult schedule(List<Process> processes, int contextSwitchTime, int quantum) {
         SchedulerResult result = new SchedulerResult("Round Robin");
 
         Map<String, ProcessInfo> processMap = new HashMap<>();
@@ -32,12 +32,24 @@ public class RoundRobin implements Scheduler {
             processMap.put(p.getName(), new ProcessInfo(p));
         }
 
-        processes.sort(Comparator.comparingInt(Process::getArrivalTime));
-        Queue<ProcessInfo> queue = new LinkedList<>();
+        for (int i = 0; i < processes.size() - 1; i++) {
+            int minIdx = i;
+            for (int j = i + 1; j < processes.size(); j++) {
+                if (processes.get(j).getArrivalTime() <
+                        processes.get(minIdx).getArrivalTime()) {
+                    minIdx = j;
+                }
+            }
+            Process temp = processes.get(i);
+            processes.set(i, processes.get(minIdx));
+            processes.set(minIdx, temp);
+        }
 
+        Queue<ProcessInfo> queue = new LinkedList<>();
         int currentTime = 0, idx = 0, completed = 0;
 
         while (completed < processes.size()) {
+
             while (idx < processes.size() && processes.get(idx).getArrivalTime() <= currentTime) {
                 queue.add(processMap.get(processes.get(idx).getName()));
                 idx++;
@@ -91,7 +103,6 @@ public class RoundRobin implements Scheduler {
                     )
             );
         }
-
         result.avgWaitingTime = totalWT / processes.size();
         result.avgTurnaroundTime = totalTAT / processes.size();
 
