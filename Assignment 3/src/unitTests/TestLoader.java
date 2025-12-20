@@ -12,7 +12,7 @@ import java.util.List;
 
 public class TestLoader {
     private static final ObjectMapper mapper = new ObjectMapper();
-    private static final String TEST_DIR = "Assignment 3/TestCases/";
+    private static final String TEST_DIR = "TestCases/";
 
     public static TestCaseDTO loadTestCase(String filename) throws IOException {
         return mapper.readValue(new File(TEST_DIR + filename), TestCaseDTO.class);

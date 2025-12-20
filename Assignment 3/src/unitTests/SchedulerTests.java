@@ -85,6 +85,7 @@ public class SchedulerTests {
         TestCaseDTO testCase = TestLoader.loadTestCase(filename);
         int cs = testCase.input.contextSwitch;
         int rrQ = testCase.input.rrQuantum;
+        int agingInterval = testCase.input.agingInterval;
 
         // Test SJF
         if (testCase.expectedOutput.has("SJF")) {
@@ -106,7 +107,7 @@ public class SchedulerTests {
         if (testCase.expectedOutput.has("Priority")) {
             List<Process> processes = TestLoader.mapToDomain(testCase.input.processes);
             PriorityScheduler priority = new PriorityScheduler();
-            SchedulerResult result = priority.schedule(processes, cs, rrQ);
+            SchedulerResult result = priority.schedule(processes, cs, agingInterval);
             assertSchedulerResult(testCase.expectedOutput.get("Priority"), result);
         }
     }
