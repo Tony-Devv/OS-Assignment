@@ -1,115 +1,140 @@
 package schedulers;
 
+import java.util.*;
 import models.Process;
 import models.SchedulerResult;
-import java.util.*;
 
 public class PriorityScheduler implements Scheduler {
 
-    class ProcessInfo { // Helper class to track process state without modifying original
+    class ProcessInfo {
         Process process;
         int remainingTime;
-        int waitingTime;
-        int turnaroundTime;
         int completionTime;
-        int effectivePriority;  // For calculating priority with aging  (To Fix Starvation)
-        int waitingStartTime;    // Track when process started waiting (To Calculate Aging)
+        int waitingTime;
+        int priority;
+        boolean added;
+        int order;
 
-
-        ProcessInfo(Process p) {
+        ProcessInfo(Process p, int order) {
             this.process = p;
             this.remainingTime = p.getBurstTime();
-            this.waitingTime = 0;
-            this.turnaroundTime = 0;
             this.completionTime = 0;
-            this.effectivePriority = p.getPriority();
-            this.waitingStartTime = -1;
+            this.waitingTime = 0;
+            this.priority = p.getPriority();
+            this.added = false;
+            this.order = order;
         }
 
-        boolean isCompleted() {
+        boolean isDone() {
             return remainingTime == 0;
         }
     }
 
     @Override
-    public SchedulerResult schedule(List<Process> processes, int contextSwitchTime, int rrQuantum) {
+    public SchedulerResult schedule(List<Process> processes, int contextSwitchTime, int agingInterval) {
         SchedulerResult result = new SchedulerResult("Preemptive Priority Scheduling (with Aging)");
 
         Map<String, ProcessInfo> processMap = new HashMap<>();
+        int idx = 0;
         for (Process p : processes) {
-            processMap.put(p.getName(), new ProcessInfo(p));
+            processMap.put(p.getName(), new ProcessInfo(p, idx++));
         }
 
-        int currentTime = 0;
-        int completed = 0;
-        String lastProcess = null;
-        int agingThreshold = 5;
+        int time = 0;
+        int done = 0;
+        ProcessInfo CurrentProcess = null;
+        ProcessInfo PreviousProcess = null;
 
-        while (completed < processes.size()) {
-            // Initialize waiting time for newly arrived processes
+        while (done < processes.size()) {
+            
+            // Check for new arrivals
             for (ProcessInfo pi : processMap.values()) {
-                if (!pi.isCompleted() && pi.process.getArrivalTime() <= currentTime) {
-                    if (pi.waitingStartTime == -1 && (lastProcess == null || !pi.process.getName().equals(lastProcess))) {
-                        pi.waitingStartTime = currentTime;
-                    }
+                if (!pi.added && pi.process.getArrivalTime() == time) {
+                    pi.added = true;
                 }
             }
             
-            updateEffectivePriorities(processMap, currentTime, agingThreshold);
-
-            ProcessInfo current = getHighestPriorityProcess(processMap, currentTime);
-
-            if (current != null) {
-                // Apply context switch if switching to different process
-                if (lastProcess != null && !lastProcess.equals(current.process.getName())) {
-                    // Old process starts waiting
-                    ProcessInfo prev = processMap.get(lastProcess);
-                    if (prev != null && !prev.isCompleted()) {
-                        prev.waitingStartTime = currentTime;
-                    }
-                    currentTime += contextSwitchTime;
-                }
-
-                // Current process is now running (not waiting)
-                current.waitingStartTime = -1;
-
-                // Only add to execution order if switching
-                if (lastProcess == null || !lastProcess.equals(current.process.getName())) {
-                    result.executionOrder.add(current.process.getName());
-                }
-
-                // Execute for 1 time unit
-                current.remainingTime--;
-                currentTime++;
-
-                // Check if completed
-                if (current.isCompleted()) {
-                    current.completionTime = currentTime;
-                    current.turnaroundTime = current.completionTime - current.process.getArrivalTime();
-                    current.waitingTime = current.turnaroundTime - current.process.getBurstTime();
-                    completed++;
-                }
-
-                lastProcess = current.process.getName();
-            } else {
-                // CPU idle
-                currentTime++;
+            // Update execution order
+            if (CurrentProcess != null && (result.executionOrder.isEmpty() || 
+                !result.executionOrder.get(result.executionOrder.size() - 1).equals(CurrentProcess.process.getName()))) {
+                result.executionOrder.add(CurrentProcess.process.getName());
             }
+            
+            // Pick a process if nothing is running
+            if (CurrentProcess == null) {
+                CurrentProcess = GetBestProcess(processMap, time);
+                
+                if (CurrentProcess != null) {
+                    if (PreviousProcess != null && !PreviousProcess.process.getName().equals(CurrentProcess.process.getName()) && time != 0) {
+                        doContextSwitch(processMap, CurrentProcess, contextSwitchTime, agingInterval, time);
+                        time += contextSwitchTime;
+                        continue;
+                    }
+                    PreviousProcess = CurrentProcess;
+                }
+            }
+            
+            // Check for preemption
+            if (CurrentProcess != null) {
+                ProcessInfo BetterPriority = GetBestProcess(processMap, time);
+                
+                if (BetterPriority != null && !BetterPriority.process.getName().equals(CurrentProcess.process.getName())) {
+                    if (BetterPriority.priority < CurrentProcess.priority ||
+                        (BetterPriority.priority == CurrentProcess.priority && BetterPriority.process.getArrivalTime() < CurrentProcess.process.getArrivalTime()) ||
+                        (BetterPriority.priority == CurrentProcess.priority && BetterPriority.process.getArrivalTime() == CurrentProcess.process.getArrivalTime() &&
+                         BetterPriority.order < CurrentProcess.order)) {
+                        
+                        PreviousProcess = CurrentProcess;
+                        CurrentProcess = BetterPriority;
+                        
+                        doContextSwitch(processMap, CurrentProcess, contextSwitchTime, agingInterval, time);
+                        time += contextSwitchTime;
+                        continue;
+                    }
+                }
+                CurrentProcess.waitingTime = 0;
+            }
+            
+            // Execute
+            if (CurrentProcess != null) {
+                CurrentProcess.remainingTime--;
+                
+                if (CurrentProcess.isDone()) {
+                    CurrentProcess.completionTime = time + 1;
+                    done++;
+                    PreviousProcess = CurrentProcess;
+                    CurrentProcess = null;
+                }
+            }
+            
+            // Update waiting times
+            for (ProcessInfo pi : processMap.values()) {
+                if (pi.added && !pi.isDone() && 
+                    (CurrentProcess == null || !pi.process.getName().equals(CurrentProcess.process.getName()))) {
+                    pi.waitingTime++;
+                }
+            }
+            
+            time++;
+            CheckIfAgingAppropriate(processMap, agingInterval);
         }
 
-        // Build results
+        // Calculate metrics
         double totalWaiting = 0;
         double totalTurnaround = 0;
+        
         for (Process p : processes) {
             ProcessInfo pi = processMap.get(p.getName());
-            totalWaiting += pi.waitingTime;
-            totalTurnaround += pi.turnaroundTime;
+            int turnaroundTime = pi.completionTime - p.getArrivalTime();
+            int waitingTime = turnaroundTime - p.getBurstTime();
+            
+            totalWaiting += waitingTime;
+            totalTurnaround += turnaroundTime;
 
-            SchedulerResult.ProcessResult pr = new SchedulerResult.ProcessResult(
+            result.processResults.add(new SchedulerResult.ProcessResult(
                 p.getName(), p.getArrivalTime(), p.getBurstTime(), p.getPriority(),
-                pi.waitingTime, pi.turnaroundTime
-            );
-            result.processResults.add(pr);
+                waitingTime, turnaroundTime
+            ));
         }
 
         result.avgWaitingTime = totalWaiting / processes.size();
@@ -118,50 +143,60 @@ public class PriorityScheduler implements Scheduler {
         return result;
     }
 
-    private void updateEffectivePriorities(Map<String, ProcessInfo> processMap, int currentTime, int agingThreshold) {
-        for (ProcessInfo pi : processMap.values()) {
-            if (!pi.isCompleted() && pi.process.getArrivalTime() <= currentTime) {
-                if (pi.waitingStartTime == -1) {
-                    // Not waiting (running or just arrived) - use base priority
-                    pi.effectivePriority = pi.process.getPriority();
-                } else {
-                    // Waiting - apply aging
-                    int waitingDuration = currentTime - pi.waitingStartTime;
-                    pi.effectivePriority = pi.process.getPriority() - (waitingDuration / agingThreshold);
+    private void doContextSwitch(Map<String, ProcessInfo> processMap, ProcessInfo next,
+                                 int contextSwitchTime, int agingInterval, int currentTime) {
+        for (int i = 0; i < contextSwitchTime; i++) {
+            if (next != null) {
+                next.waitingTime++;
+            }
+            
+            for (ProcessInfo pi : processMap.values()) {
+                if (pi.added && !pi.isDone() && 
+                    (next == null || !pi.process.getName().equals(next.process.getName()))) {
+                    pi.waitingTime++;
                 }
+            }
+            
+            for (ProcessInfo pi : processMap.values()) {
+                if (!pi.added && pi.process.getArrivalTime() == (currentTime + i + 1)) {
+                    pi.added = true;
+                }
+            }
+            
+            CheckIfAgingAppropriate(processMap, agingInterval);
+        }
+    }
+
+    private void CheckIfAgingAppropriate(Map<String, ProcessInfo> processMap, int agingInterval) {
+        if (agingInterval == 0) return;
+        
+        for (ProcessInfo pi : processMap.values()) {
+            if (pi.added && !pi.isDone() && pi.waitingTime >= agingInterval) {
+                pi.priority = Math.max(1, pi.priority - 1);
+                pi.waitingTime = 0;
             }
         }
     }
 
-    private ProcessInfo getHighestPriorityProcess(Map<String, ProcessInfo> processMap, int currentTime) {
-        ProcessInfo highest = null;
+    private ProcessInfo GetBestProcess(Map<String, ProcessInfo> processMap, int currentTime) {
+        ProcessInfo best = null;
 
         for (ProcessInfo pi : processMap.values()) {
-            if (pi.process.getArrivalTime() <= currentTime && !pi.isCompleted()) {
-                if (highest == null) {
-                    highest = pi;
-                } else if (pi.effectivePriority < highest.effectivePriority) {
-                    highest = pi;
-                } else if (pi.effectivePriority == highest.effectivePriority) {
-                    // Tie-break 1: Base priority (lower is better)
-                    if (pi.process.getPriority() < highest.process.getPriority()) {
-                        highest = pi;
-                    } else if (pi.process.getPriority() == highest.process.getPriority()) {
-                        // Tie-break 2: Waiting time (longer waiting wins)
-                        int piWait = (pi.waitingStartTime == -1) ? 0 : currentTime - pi.waitingStartTime;
-                        int highWait = (highest.waitingStartTime == -1) ? 0 : currentTime - highest.waitingStartTime;
-                        
-                        if (piWait > highWait) {
-                            highest = pi;
-                        } else if (piWait == highWait) {
-                            // Tie-break 3: Arrival time (earlier is better)
-                            if (pi.process.getArrivalTime() < highest.process.getArrivalTime()) {
-                                highest = pi;
-                            } else if (pi.process.getArrivalTime() == highest.process.getArrivalTime()) {
-                                // Tie-break 4: Name (alphabetical)
-                                if (pi.process.getName().compareTo(highest.process.getName()) < 0) {
-                                    highest = pi;
-                                }
+            if (pi.added && pi.process.getArrivalTime() <= currentTime && !pi.isDone()) {
+                if (best == null) {
+                    best = pi;
+                } else {
+                    int curPriority = pi.priority;
+                    int bestPriority = best.priority;
+                    
+                    if (curPriority < bestPriority) {
+                        best = pi;
+                    } else if (curPriority == bestPriority) {
+                        if (pi.process.getArrivalTime() < best.process.getArrivalTime()) {
+                            best = pi;
+                        } else if (pi.process.getArrivalTime() == best.process.getArrivalTime()) {
+                            if (pi.order < best.order) {
+                                best = pi;
                             }
                         }
                     }
@@ -169,6 +204,6 @@ public class PriorityScheduler implements Scheduler {
             }
         }
 
-        return highest;
+        return best;
     }
 }
