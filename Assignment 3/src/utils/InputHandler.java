@@ -55,6 +55,17 @@ public class InputHandler {
         return scanner.nextInt();
     }
     
+    /**
+     * Get aging interval for priority scheduling (used to age priorities over time)
+     */
+    public int getAgingInterval() {
+        System.out.print("Enter priority aging interval: ");
+        while (!scanner.hasNextInt()) {
+            System.out.print("Invalid input. Enter priority aging interval: ");
+            scanner.next();
+        }
+        return scanner.nextInt();
+    }
    
     /**
      * Get process details from user (always includes quantum)
@@ -90,12 +101,15 @@ public class InputHandler {
             }
             int priority = scanner.nextInt();
             
-            System.out.print("Quantum: ");
-            while (!scanner.hasNextInt()) {
-                System.out.print("Invalid input. Enter quantum: ");
-                scanner.next();
-            }
-            int quantum = scanner.nextInt();
+            int quantum = 0;
+            if (includeQuantum) {
+                System.out.print("Quantum: ");
+                while (!scanner.hasNextInt()) {
+                    System.out.print("Invalid input. Enter quantum: ");
+                    scanner.next();
+                }
+                quantum = scanner.nextInt();
+            } 
             
             processes.add(new Process(name, arrivalTime, burstTime, priority, quantum));
         }
