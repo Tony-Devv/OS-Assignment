@@ -18,7 +18,8 @@ public class Main {
         int numProcesses = input.getNumberOfProcesses();
         int rrQuantum = input.getRoundRobinQuantum();
         int contextSwitchTime = input.getContextSwitchTime();
-        List<Process> processes = input.getProcesses(numProcesses, true);
+        int agingInterval = input.getAgingInterval();
+        List<Process> processes = input.getProcesses(numProcesses, false);
         
         System.out.println("\n=== Running All Schedulers ===\n");
         
@@ -31,7 +32,7 @@ public class Main {
         OutputFormatter.printResult(rrResult);
         
         PriorityScheduler priority = new PriorityScheduler();
-        SchedulerResult priorityResult = priority.schedule(processes, contextSwitchTime, rrQuantum);
+        SchedulerResult priorityResult = priority.schedule(processes, contextSwitchTime, agingInterval);
         OutputFormatter.printResult(priorityResult);
        
         input.close();
