@@ -33,11 +33,7 @@ public class Main {
         PriorityScheduler priority = new PriorityScheduler();
         SchedulerResult priorityResult = priority.schedule(processes, contextSwitchTime, rrQuantum);
         OutputFormatter.printResult(priorityResult);
-        
-        AGScheduler ag = new AGScheduler();
-        SchedulerResult agResult = ag.schedule(processes, contextSwitchTime, rrQuantum);
-        OutputFormatter.printResult(agResult);
-        
+       
         input.close();
     }
 }
